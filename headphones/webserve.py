@@ -134,7 +134,6 @@ class WebInterface(object):
 
     def addArtist(self, artistid):
         threading.Thread(target=importer.addArtisttoDB, args=[artistid]).start()
-        threading.Thread(target=lastfm.getSimilar).start()
         raise cherrypy.HTTPRedirect("artistPage?ArtistID=%s" % artistid)
     addArtist.exposed = True
 
@@ -303,6 +302,50 @@ class WebInterface(object):
         else:
             raise cherrypy.HTTPRedirect(redirect)
     queueAlbum.exposed = True
+
+    def choose_specific_download(self, AlbumID):
+        results = searcher.searchforalbum(AlbumID, choose_specific_download=True)
+        
+        results_as_dicts = []
+        
+        for result in results:
+
+            result_dict = {
+                'title':result[0],
+                'size':result[1],
+                'url':result[2],
+                'provider':result[3],
+                'kind':result[4]
+            }
+            results_as_dicts.append(result_dict)
+
+        s = simplejson.dumps(results_as_dicts)
+        cherrypy.response.headers['Content-type'] = 'application/json'
+        return s
+        
+    choose_specific_download.exposed = True
+
+    def download_specific_release(self, AlbumID, title, size, url, provider, kind, **kwargs):
+
+        # Handle situations where the torrent url contains arguments that are parsed
+        if kwargs:
+            import urllib, urllib2
+            url = urllib2.quote(url, safe=":?/=&") + '&' + urllib.urlencode(kwargs)
+
+        try:
+            result = [(title,int(size),url,provider,kind)]
+        except ValueError:
+            result = [(title,float(size),url,provider,kind)]
+
+        logger.info(u"Making sure we can download the chosen result")
+        (data, bestqual) = searcher.preprocess(result)
+
+        if data and bestqual:
+          myDB = db.DBConnection()
+          album = myDB.action('SELECT * from albums WHERE AlbumID=?', [AlbumID]).fetchone()
+          searcher.send_to_downloader(data, bestqual, album)
+
+    download_specific_release.exposed = True
 
     def unqueueAlbum(self, AlbumID, ArtistID):
         logger.info(u"Marking album: " + AlbumID + "as skipped...")
@@ -659,9 +702,9 @@ class WebInterface(object):
         raise cherrypy.HTTPRedirect("home")
     forceSearch.exposed = True
 
-    def forcePostProcess(self):
+    def forcePostProcess(self, dir=None, album_dir=None):
         from headphones import postprocessor
-        threading.Thread(target=postprocessor.forcePostProcess).start()
+        threading.Thread(target=postprocessor.forcePostProcess, kwargs={'dir':dir,'album_dir':album_dir}).start()
         raise cherrypy.HTTPRedirect("home")
     forcePostProcess.exposed = True
 
@@ -691,7 +734,7 @@ class WebInterface(object):
         if sSearch == "":
             filtered = headphones.LOG_LIST[::]
         else:
-            filtered = [row for row in headphones.LOG_LIST for column in row if sSearch in column]
+            filtered = [row for row in headphones.LOG_LIST for column in row if sSearch.lower() in column.lower()]
 
         sortcolumn = 0
         if iSortCol_0 == '1':
@@ -939,6 +982,7 @@ class WebInterface(object):
                     "album_art_format" : headphones.ALBUM_ART_FORMAT,
                     "embed_album_art" : checked(headphones.EMBED_ALBUM_ART),
                     "embed_lyrics" : checked(headphones.EMBED_LYRICS),
+                    "replace_existing_folders" : checked(headphones.REPLACE_EXISTING_FOLDERS),
                     "dest_dir" : headphones.DESTINATION_DIR,
                     "lossless_dest_dir" : headphones.LOSSLESS_DESTINATION_DIR,
                     "folder_format" : headphones.FOLDER_FORMAT,
@@ -948,6 +992,9 @@ class WebInterface(object):
                     "autowant_upcoming" : checked(headphones.AUTOWANT_UPCOMING),
                     "autowant_all" : checked(headphones.AUTOWANT_ALL),
                     "keep_torrent_files" : checked(headphones.KEEP_TORRENT_FILES),
+                    "prefer_torrents_0" : radio(headphones.PREFER_TORRENTS, 0),
+                    "prefer_torrents_1" : radio(headphones.PREFER_TORRENTS, 1),
+                    "prefer_torrents_2" : radio(headphones.PREFER_TORRENTS, 2),
                     "log_dir" : headphones.LOG_DIR,
                     "cache_dir" : headphones.CACHE_DIR,
                     "interface_list" : interface_list,
@@ -1045,9 +1092,9 @@ class WebInterface(object):
         use_headphones_indexer=0, newznab=0, newznab_host=None, newznab_apikey=None, newznab_enabled=0, nzbsorg=0, nzbsorg_uid=None, nzbsorg_hash=None, nzbsrus=0, nzbsrus_uid=None, nzbsrus_apikey=None, omgwtfnzbs=0, omgwtfnzbs_uid=None, omgwtfnzbs_apikey=None,
         preferred_words=None, required_words=None, ignored_words=None, preferred_quality=0, preferred_bitrate=None, detect_bitrate=0, move_files=0, torrentblackhole_dir=None, download_torrent_dir=None,
         numberofseeders=None, use_piratebay=0, piratebay_proxy_url=None, use_isohunt=0, use_kat=0, use_mininova=0, waffles=0, waffles_uid=None, waffles_passkey=None, whatcd=0, whatcd_username=None, whatcd_password=None,
-        rutracker=0, rutracker_user=None, rutracker_password=None, rename_files=0, correct_metadata=0, cleanup_files=0, add_album_art=0, album_art_format=None, embed_album_art=0, embed_lyrics=0,
+        rutracker=0, rutracker_user=None, rutracker_password=None, rename_files=0, correct_metadata=0, cleanup_files=0, add_album_art=0, album_art_format=None, embed_album_art=0, embed_lyrics=0, replace_existing_folders=False,
         destination_dir=None, lossless_destination_dir=None, folder_format=None, file_format=None, file_underscores=0, include_extras=0, single=0, ep=0, compilation=0, soundtrack=0, live=0,
-        remix=0, spokenword=0, audiobook=0, autowant_upcoming=False, autowant_all=False, keep_torrent_files=False, interface=None, log_dir=None, cache_dir=None, music_encoder=0, encoder=None, xldprofile=None,
+        remix=0, spokenword=0, audiobook=0, autowant_upcoming=False, autowant_all=False, keep_torrent_files=False, prefer_torrents=0, interface=None, log_dir=None, cache_dir=None, music_encoder=0, encoder=None, xldprofile=None,
         bitrate=None, samplingfrequency=None, encoderfolder=None, advancedencoder=None, encoderoutputformat=None, encodervbrcbr=None, encoderquality=None, encoderlossless=0,
         delete_lossless_files=0, growl_enabled=0, growl_onsnatch=0, growl_host=None, growl_password=None, prowl_enabled=0, prowl_onsnatch=0, prowl_keys=None, prowl_priority=0, xbmc_enabled=0, xbmc_host=None, xbmc_username=None, xbmc_password=None,
         xbmc_update=0, xbmc_notify=0, nma_enabled=False, nma_apikey=None, nma_priority=0, nma_onsnatch=0, pushalot_enabled=False, pushalot_apikey=None, pushalot_onsnatch=0, synoindex_enabled=False,
@@ -1139,6 +1186,7 @@ class WebInterface(object):
         headphones.ALBUM_ART_FORMAT = album_art_format
         headphones.EMBED_ALBUM_ART = embed_album_art
         headphones.EMBED_LYRICS = embed_lyrics
+        headphones.REPLACE_EXISTING_FOLDERS = replace_existing_folders
         headphones.DESTINATION_DIR = destination_dir
         headphones.LOSSLESS_DESTINATION_DIR = lossless_destination_dir
         headphones.FOLDER_FORMAT = folder_format
@@ -1148,6 +1196,7 @@ class WebInterface(object):
         headphones.AUTOWANT_UPCOMING = autowant_upcoming
         headphones.AUTOWANT_ALL = autowant_all
         headphones.KEEP_TORRENT_FILES = keep_torrent_files
+        headphones.PREFER_TORRENTS = int(prefer_torrents)
         headphones.INTERFACE = interface
         headphones.LOG_DIR = log_dir
         headphones.CACHE_DIR = cache_dir

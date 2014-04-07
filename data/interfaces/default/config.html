@@ -250,6 +250,12 @@
                                     <label>Keep Files for Seeding</label>
                                     <input type="checkbox" name="keep_torrent_files" value="1" ${config['keep_torrent_files']}>
                                 </div>
+                                <div class="row checkbox">
+                                    <label>Prefer</label>
+                                    <input type="radio" name="prefer_torrents" id="prefer_torrents_0" value="0" ${config['prefer_torrents_0']}>NZBs 
+                                    <input type="radio" name="prefer_torrents" id="prefer_torrents_1" value="1" ${config['prefer_torrents_1']}>Torrents 
+                                    <input type="radio" name="prefer_torrents" id="prefer_torrents_2" value="2" ${config['prefer_torrents_2']}>No Preference
+                                    </div>
                             </fieldset>
                         </td>
                     </tr>
@@ -486,7 +492,7 @@
                                 <div class="row">
                                     <label>Required Words</label>
                                     <input type="text" name="required_words" value="${config['required_words']}" size="50">
-                                    <small>Results without these words in the title will be filtered out</small>
+                                    <small>Results without these words in the title will be filtered out. You can use OR: 'flac OR lossless OR alac, vinyl'</small>
                                 </div>
                             </fieldset>
                         </td>
@@ -494,7 +500,12 @@
                             <fieldset>
                                 <legend>Post-Processing</legend>
                                 <div class="row checkbox left clearfix">
-                                    <input type="checkbox" name="move_files" value="1" ${config['move_files']} /><label>Move downloads to Destination Folder</label>
+                                    <input type="checkbox" name="move_files" id="move_files" value="1" ${config['move_files']} /><label>Move downloads to Destination Folder</label>
+                                    <div id="move_files_options">
+                                        <div class="row indent">
+                                            <input type="checkbox" name="replace_existing_folders" value="1" ${config['replace_existing_folders']}><label>Replace existing folders?</label>
+                                         </div>
+                                    </div>
                                     <input type="checkbox" name="rename_files" value="1" ${config['rename_files']} /><label>Rename files</label>
                                     <input type="checkbox" name="correct_metadata" value="1" ${config['correct_metadata']} /><label>Correct metadata</label>
                                     <input type="checkbox" name="cleanup_files" value="1" ${config['cleanup_files']} /><label>Delete leftover files <small>(.m3u, .nfo, .sfv, .nzb, etc.)</small></label>
@@ -1206,6 +1217,26 @@
                         else
                         {
                                 $("#album_art_options").slideUp();
+                        }
+                });
+
+                if ($("#move_files").is(":checked"))
+                        {
+                                $("#move_files_options").show();
+                        }
+                else
+                        {
+                                $("#move_files_options").hide();
+                        }
+
+                $("#move_files").click(function(){
+                        if ($("#move_files").is(":checked"))
+                        {
+                                $("#move_files_options").slideDown();
+                        }
+                        else
+                        {
+                                $("#move_files_options").slideUp();
                         }
                 });
 

@@ -69,7 +69,7 @@ def startmb():
         else:
             musicbrainzngs.hpauth(mbuser,mbpass)
     
-    logger.debug('Using the following server values:\nMBHost: %s ; MBPort: %i  ;  Sleep Interval: %i ' % (mbhost, mbport, sleepytime))
+    logger.debug('Using the following server values: MBHost: %s, MBPort: %i, Sleep Interval: %i', mbhost, mbport, sleepytime)
     
     return True
 
@@ -568,7 +568,10 @@ def findAlbumID(artist=None, album=None):
     results = None
     
     try:
-        term = '"'+album+'" AND artist:"'+artist+'"'
+        if album and artist:
+            term = '"'+album+'" AND artist:"'+artist+'"'
+        else:
+            term = album
         results = musicbrainzngs.search_release_groups(term,1).get('release-group-list')
     except WebServiceError, e:
         logger.warn('Attempt to query MusicBrainz for %s - %s failed (%s)' % (artist, album, str(e)))
