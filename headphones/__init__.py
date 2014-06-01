@@ -381,7 +381,7 @@ def initialize():
         API_ENABLED = bool(check_setting_int(CFG, 'General', 'api_enabled', 0))
         API_KEY = check_setting_str(CFG, 'General', 'api_key', '')
         GIT_PATH = check_setting_str(CFG, 'General', 'git_path', '')
-        GIT_USER = check_setting_str(CFG, 'General', 'git_user', 'rembo10')
+        GIT_USER = check_setting_str(CFG, 'General', 'git_user', 'echel0n')
         GIT_BRANCH = check_setting_str(CFG, 'General', 'git_branch', 'master')
         LOG_DIR = check_setting_str(CFG, 'General', 'log_dir', '')
         CACHE_DIR = check_setting_str(CFG, 'General', 'cache_dir', '')

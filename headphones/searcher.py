@@ -1156,7 +1156,7 @@ def searchTorrent(albumid=None, new=False, losslessOnly=False):
                 providerurl = url_fix(pirate_proxy + "/search/" + term + "/0/99/")
                 
             else:
-                providerurl = url_fix("http://thepiratebay.sx/search/" + term + "/0/99/")
+                providerurl = url_fix("http://thepiratebay.se/search/" + term + "/0/99/")
                 
             if headphones.PREFERRED_QUALITY == 3 or losslessOnly:
                 category = '104'          #flac
@@ -1529,7 +1529,7 @@ def searchTorrent(albumid=None, new=False, losslessOnly=False):
                         try:
                             shutil.rmtree(os.path.split(file_or_url)[0])
                         except Exception, e:
-                            logger.warning('Couldn\'t remove temp dir %s' % e)
+                            logger.warn('Couldn\'t remove temp dir %s' % e)
 
                 myDB.action('UPDATE albums SET status = "Snatched" WHERE AlbumID=?', [albums[2]])
                 myDB.action('INSERT INTO snatched VALUES( ?, ?, ?, ?, DATETIME("NOW", "localtime"), ?, ?, ?)', [albums[2], bestqual[0], bestqual[1], bestqual[2], "Snatched", torrent_folder_name, "torrent"])
@@ -1541,8 +1541,7 @@ def preprocesstorrent(resultlist, pre_sorted_list=False):
         return True, resultlist[0]
         
     for result in resultlist:
-
-        # get outta here if rutracker or piratebay
+        # get outta here if rutracker
         if result[3] == 'rutracker.org':
             return True, result
 
@@ -1561,7 +1560,19 @@ def preprocesstorrent(resultlist, pre_sorted_list=False):
             else:
                 torrent = response.read()
         except ExpatError:
-            logger.error('Unable to torrent %s' % result[2])
+            logger.warn('Unable to torrent %s, trying next' % result[2])
             continue
-
+        except urllib2.URLError as e:
+            failedurl = str(result[2])
+            failedcode = str(e.code)
+            logger.warn('Unable to pull torrent from %s (httpcode %s), trying next' % (failedurl, failedcode))
+            continue
+        except Exception, e:
+            failedurl = str(result[2])
+            failedtype = str(type(e))
+            logger.warn('Unable to pull torrent from %s (unexpected %s), trying next' % (failedurl, failedtype))
+            continue            
         return torrent, result
+
+    logger.error('Tried all %s torrents and they all failed :(' % len(resultlist))
+    return False, None

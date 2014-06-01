@@ -106,7 +106,7 @@ def checkGithub():
 
     # Get the latest commit available from github
     url = 'https://api.github.com/repos/%s/headphones/commits/%s' % (headphones.GIT_USER, headphones.GIT_BRANCH)
-    logger.info('Retrieving latest version information from github')
+    logger.info('Retrieving latest version information from github from url %s' % url)
     try:
         result = urllib2.urlopen(url, timeout=20).read()
         git = simplejson.JSONDecoder().decode(result)
